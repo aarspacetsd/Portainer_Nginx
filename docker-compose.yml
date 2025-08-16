@@ -24,7 +24,7 @@ services:
       - "80:80" # Buka port 80 untuk akses web
     volumes:
       - ./src:/var/www/html # Berbagi folder proyek dengan Nginx
-      - ./nginx/default.conf # Gunakan file konfigurasi Nginx kustom
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf # Gunakan file konfigurasi Nginx kustom
     networks:
       - laravel
     depends_on:

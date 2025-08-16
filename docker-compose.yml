@@ -1,3 +1,4 @@
+
 version: '3.8'
 
 services:
@@ -12,28 +13,3 @@ services:
       - "80:80"
     # Atur agar kontainer selalu restart secara otomatis.
     restart: always
-```html
-<!-- FILE 2: index.html -->
-<!-- Ini adalah konten website Anda. Anda bisa menambahkan file CSS dan JS juga. -->
-
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Website dari Nginx</title>
-    <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
-        .container { text-align: center; padding: 40px; background-color: white; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        h1 { color: #333; }
-        p { color: #666; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Halo, Dunia!</h1>
-        <p>Website ini berhasil disajikan oleh Nginx di dalam sebuah kontainer Docker.</p>
-    </div>
-</body>
-</html>
-```dockerfile

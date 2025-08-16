@@ -10,58 +10,72 @@ services:
     working_dir: /var/www/html
     volumes:
       - ./src:/var/www/html
-    networks:
-      - laravel
-    depends_on:
-      db:
-        condition: service_healthy
     environment:
-      # Agar queue/session cache tidak error kalau APP_ENV belum di-set
       APP_ENV: ${APP_ENV:-local}
       APP_DEBUG: ${APP_DEBUG:-true}
-      APP_KEY: ${APP_KEY:-base64:dummykey=}
-      # Opsional: pass DB env juga ke app (Laravel tetap baca .env)
+      # optional: pass DB env ke container (Laravel tetap baca src/.env)
       DB_HOST: db
       DB_PORT: 3306
       DB_DATABASE: ${DB_DATABASE:-laravel}
-      DB_USERNAME: ${DB_USERNAME:-user}
-      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_USERNAME: ${DB_USERNAME:-appuser}
+      DB_PASSWORD: ${DB_PASSWORD:-apppass}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - laravel
 
   nginx:
-    image: nginx:1.25-alpine
+    image: nginx:1.27-alpine
     container_name: nginx
     restart: unless-stopped
     ports:
-      - "8080:80"           # ganti ke 80:80 kalau host port 80 kosong
+      - "8080:80"        # ganti ke 80:80 kalau port host 80 kosong
     volumes:
       - ./src:/var/www/html:ro
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-    networks:
-      - laravel
     depends_on:
       - app
-
-  db:
-    image: mysql:8.0
-    container_name: laravel_db
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-laravel}
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-root}
-      MYSQL_USER: ${DB_USERNAME:-user}
-    command: ["--default-authentication-plugin=mysql_native_password"]
-    volumes:
-      - db_data:/var/lib/mysql
-    ports:
-      - "3307:3306"         # akses dari host: 127.0.0.1:3307
     networks:
       - laravel
+
+  db:
+    image: mysql:8.4
+    container_name: laravel_db
+    restart: unless-stopped
+    command: ["--default-authentication-plugin=mysql_native_password"]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${DB_DATABASE:-laravel}
+      MYSQL_USER: ${DB_USERNAME:-appuser}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-apppass}
+    volumes:
+      - db_data:/var/lib/mysql
+    # kalau tidak perlu akses DB dari host, hapus bagian ports:
+    ports:
+      - "3307:3306"      # host→DB (opsional)
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_ROOT_PASSWORD:-rootpass}"]
       interval: 5s
       timeout: 3s
-      retries: 15
+      retries: 20
+    networks:
+      - laravel
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: pma
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 256M
+    ports:
+      - "8081:80"        # akses phpMyAdmin via http://HOST:8081
+    depends_on:
+      - db
+    networks:
+      - laravel
 
 networks:
   laravel:

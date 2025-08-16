@@ -1,32 +1,56 @@
 FROM php:8.2-fpm-alpine
-SHELL ["/bin/sh", "-o", "pipefail", "-c"]
 
-# 1) deps
+# Install system dependencies
 RUN apk add --no-cache \
-    git curl unzip zip \
-    $PHPIZE_DEPS \
-    libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev \
-    libxml2-dev libzip-dev zlib-dev
+    git \
+    curl \
+    unzip \
+    zip \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    libwebp-dev \
+    freetype-dev \
+    libxml2-dev \
+    libzip-dev \
+    zlib-dev \
+    oniguruma-dev \
+    mysql-client \
+    nodejs \
+    npm
 
-# 2) pasang per-EXT (biar tahu yang mana yang fail)
-RUN docker-php-ext-install -j1 pdo_mysql
-RUN docker-php-ext-install -j1 mbstring
-RUN docker-php-ext-install -j1 exif
-RUN docker-php-ext-install -j1 pcntl
-RUN docker-php-ext-install -j1 bcmath
+# Install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
+    && docker-php-ext-install -j$(nproc) \
+        pdo_mysql \
+        mbstring \
+        exif \
+        pcntl \
+        bcmath \
+        gd \
+        zip \
+        opcache
 
-# GD: configure dulu (sering jadi sumber gagal)
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
-RUN docker-php-ext-install -j1 gd
-
-# ZIP: sering gagal kalau zlib/libzip kurang (sudah kita pasang)
-RUN docker-php-ext-install -j1 zip
-
-RUN docker-php-ext-install -j1 opcache
-
-# Composer & sisa step…
+# Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Create user and set permissions
+RUN addgroup -g 1000 -S www \
+    && adduser -S www -G www -u 1000
+
+# Copy PHP-FPM configuration
+COPY ./php/php-fpm.conf /usr/local/etc/php-fpm.d/www.conf
+COPY ./php/php.ini /usr/local/etc/php/php.ini
+
+# Set working directory
 WORKDIR /var/www/html
-RUN addgroup -g 1000 -S www && adduser -S www -G www -u 1000 && chown -R www:www /var/www/html
+
+# Change ownership of working directory
+RUN chown -R www:www /var/www/html
+
+# Switch to non-root user
 USER www
+
+# Expose port 9000
+EXPOSE 9000
+
 CMD ["php-fpm"]

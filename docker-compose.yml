@@ -2,14 +2,57 @@
 version: '3.8'
 
 services:
-  # Nama layanan Anda, misalnya 'webserver'
-  nginx-server:
-    # Perintah untuk membangun image dari Dockerfile di direktori ini.
-    build: .
-    # Beri nama dan versi pada image yang akan dibuat.
-    image: my-static-website:1.0
-    # Petakan port 80 (HTTP standar) di server Anda ke port 80 di dalam kontainer.
+  # 1. Kontainer Aplikasi (PHP-FPM)
+  app:
+    build:
+      context: . # Membangun image dari Dockerfile di direktori ini
+      dockerfile: Dockerfile
+    container_name: laravel_app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./src:/var/www/html # Sinkronisasi folder proyek Laravel Anda ke dalam kontainer
+    networks:
+      - laravel
+
+  # 2. Kontainer Web Server (Nginx)
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: laravel_nginx
+    restart: unless-stopped
     ports:
-      - "80:80"
-    # Atur agar kontainer selalu restart secara otomatis.
-    restart: always
+      - "80:80" # Buka port 80 untuk akses web
+    volumes:
+      - ./src:/var/www/html # Berbagi folder proyek dengan Nginx
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf # Gunakan file konfigurasi Nginx kustom
+    networks:
+      - laravel
+    depends_on:
+      - app # Nginx baru akan berjalan setelah 'app' siap
+
+  # 3. Kontainer Database (MySQL)
+  db:
+    image: mysql:8.0
+    container_name: laravel_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-laravel}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_USER: ${DB_USERNAME:-user}
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306" # Buka port 3306 untuk koneksi database eksternal (opsional)
+    networks:
+      - laravel
+
+# Definisi Jaringan
+networks:
+  laravel:
+    driver: bridge
+
+# Definisi Volume untuk persistensi data database
+volumes:
+  db_data:
+    driver: local

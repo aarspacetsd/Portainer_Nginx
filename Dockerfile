@@ -1,18 +1,17 @@
-FROM php:8.2-fpm
+FROM php:8.2-fpm-alpine
 
-# System deps (Debian bookworm)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Build tools & deps untuk ekstensi
+RUN apk add --no-cache \
     git curl unzip zip \
-    libpng-dev libjpeg62-turbo-dev libwebp-dev libfreetype6-dev \
-    libxml2-dev libzip-dev \
+    libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev \
+    libxml2-dev libzip-dev $PHPIZE_DEPS \
  && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
- && docker-php-ext-install -j"$(nproc)" pdo_mysql mbstring exif pcntl bcmath gd zip opcache \
- && rm -rf /var/lib/apt/lists/*
+ && docker-php-ext-install -j"$(nproc)" pdo_mysql mbstring exif pcntl bcmath gd zip opcache
 
 # Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Tuning PHP (opsional tapi disarankan)
+# (Opsional) tuning PHP
 RUN { \
       echo "memory_limit=512M"; \
       echo "upload_max_filesize=128M"; \
@@ -25,10 +24,10 @@ RUN { \
     } > /usr/local/etc/php/conf.d/laravel.ini
 
 WORKDIR /var/www/html
-
-# Jalankan FPM sebagai www-data
-RUN chown -R www-data:www-data /var/www/html
-USER www-data
+# User non-root (opsional)
+RUN addgroup -g 1000 -S www && adduser -S www -G www -u 1000 \
+ && chown -R www:www /var/www/html
+USER www
 
 EXPOSE 9000
 CMD ["php-fpm"]

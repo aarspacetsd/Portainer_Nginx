@@ -1,43 +1,32 @@
 FROM php:8.2-fpm-alpine
-
-# Tampilkan perintah + error detail
 SHELL ["/bin/sh", "-o", "pipefail", "-c"]
 
-# 1) Build tools + library dev yang diperlukan
-#    (tambahkan zlib-dev; sering terlupa dan bikin ext/zip gagal)
+# 1) deps
 RUN apk add --no-cache \
     git curl unzip zip \
     $PHPIZE_DEPS \
     libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev \
     libxml2-dev libzip-dev zlib-dev
 
-# 2) Konfigurasi GD (pisah step agar errornya jelas)
+# 2) pasang per-EXT (biar tahu yang mana yang fail)
+RUN docker-php-ext-install -j1 pdo_mysql
+RUN docker-php-ext-install -j1 mbstring
+RUN docker-php-ext-install -j1 exif
+RUN docker-php-ext-install -j1 pcntl
+RUN docker-php-ext-install -j1 bcmath
+
+# GD: configure dulu (sering jadi sumber gagal)
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
+RUN docker-php-ext-install -j1 gd
 
-# 3) Install ekstensi PHP (pakai -j1 untuk menghindari OOM di host kecil)
-RUN docker-php-ext-install -j1 pdo_mysql mbstring exif pcntl bcmath gd zip opcache
+# ZIP: sering gagal kalau zlib/libzip kurang (sudah kita pasang)
+RUN docker-php-ext-install -j1 zip
 
-# 4) Composer
+RUN docker-php-ext-install -j1 opcache
+
+# Composer & sisa step…
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
-# 5) Tuning PHP (opsional)
-RUN { \
-      echo "memory_limit=512M"; \
-      echo "upload_max_filesize=128M"; \
-      echo "post_max_size=128M"; \
-      echo "max_execution_time=120"; \
-      echo "opcache.enable=1"; \
-      echo "opcache.enable_cli=1"; \
-      echo "opcache.jit=tracing"; \
-      echo "opcache.validate_timestamps=0"; \
-    } > /usr/local/etc/php/conf.d/laravel.ini
-
 WORKDIR /var/www/html
-
-# User non-root (opsional)
-RUN addgroup -g 1000 -S www && adduser -S www -G www -u 1000 \
- && chown -R www:www /var/www/html
+RUN addgroup -g 1000 -S www && adduser -S www -G www -u 1000 && chown -R www:www /var/www/html
 USER www
-
-EXPOSE 9000
 CMD ["php-fpm"]

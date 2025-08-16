@@ -18,7 +18,7 @@ services:
   # 2. Kontainer Web Server (Nginx)
   nginx:
     image: nginx:1.25-alpine
-    container_name: laravel_nginx
+    container_name: nginx
     restart: unless-stopped
     ports:
       - "80:80" # Buka port 80 untuk akses web
@@ -43,7 +43,7 @@ services:
     volumes:
       - db_data:/var/lib/mysql
     ports:
-      - "3306:3306" # Buka port 3306 untuk koneksi database eksternal (opsional)
+      - "3307:3306" # Buka port 3306 untuk koneksi database eksternal (opsional)
     networks:
       - laravel
 

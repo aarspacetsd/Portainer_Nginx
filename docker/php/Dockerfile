@@ -1,28 +1,28 @@
-# Gunakan image PHP 8.2 FPM Alpine sebagai dasar
-FROM php:8.2-fpm-alpine
+FROM php:8.2-fpm
 
-# Set working directory
+# System deps
+RUN apt-get update && apt-get install -y \
+    git unzip libzip-dev libpng-dev libjpeg-dev libfreetype6-dev libonig-dev libicu-dev \
+    libxml2-dev libssl-dev libpq-dev zlib1g-dev libcurl4-openssl-dev \
+ && docker-php-ext-configure gd --with-freetype --with-jpeg \
+ && docker-php-ext-install -j$(nproc) pdo_mysql mbstring exif pcntl bcmath gd zip intl opcache \
+ && rm -rf /var/lib/apt/lists/*
+
+# Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# PHP ini
+COPY php.ini /usr/local/etc/php/conf.d/custom.ini
+
+# Workdir
 WORKDIR /var/www/html
 
-# Install dependensi sistem yang dibutuhkan
-RUN apk update && apk add --no-cache \
-    build-base \
-    libpng-dev \
-    libzip-dev \
-    zip \
-    oniguruma-dev \
-    libxml2-dev \
-    curl \
-    git
+# Entrypoint untuk set permission & init ringan
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Install ekstensi PHP yang umum dibutuhkan Laravel
-RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip
-
-# Install Composer (Package Manager untuk PHP)
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-
-# Ganti user ke www-data
 USER www-data
 
-# Expose port 9000 untuk PHP-FPM
 EXPOSE 9000
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["php-fpm"]
